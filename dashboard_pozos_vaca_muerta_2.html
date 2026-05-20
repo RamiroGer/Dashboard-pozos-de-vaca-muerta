@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard — Fractura de Pozos | Vaca Muerta</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2330;
+  --border:   #30363d;
+  --border2:  #21262d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --dim:      #484f58;
+  --blue:     #388bfd;
+  --blue-dim: #1f3a5f;
+  --green:    #3fb950;
+  --green-dim:#1a3a1a;
+  --orange:   #f78166;
+  --orange-dim:#3a1e1a;
+  --yellow:   #e3b341;
+  --purple:   #bc8cff;
+  --cyan:     #39c5cf;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Syne", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE OVERLAY ── */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: .4;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  position: relative; z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  animation: slideDown .5s ease both;
+}
+@keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.logo {
+  display: flex; align-items: center; gap: 12px;
+}
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, #203a43, #2c5364);
+  border: 1px solid var(--blue-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
+.logo-sub  { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green-dim); border: 1px solid var(--green);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; color: var(--green); font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s ease infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+.top-meta { font-size: 11px; color: var(--muted); font-family: "JetBrains Mono", monospace; text-align: right; }
+
+/* ── LAYOUT ── */
+.wrapper {
+  position: relative; z-index: 1;
+  padding: 24px 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 18px;
+  max-width: 1200px; margin: 0 auto;
+}
+
+/* ── WINDOW ── */
+.win {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  animation: fadeUp .5s ease both;
+}
+.win:nth-child(1) { animation-delay: .1s; }
+.win:nth-child(2) { animation-delay: .2s; }
+.win:nth-child(3) { animation-delay: .3s; }
+.win:nth-child(4) { animation-delay: .4s; }
+@keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.win-bar {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border2);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.win-dots { display: flex; gap: 6px; }
+.wd { width: 11px; height: 11px; border-radius: 50%; }
+.wd.r { background: #ff5f57; } .wd.y { background: #febc2e; } .wd.g { background: #28c840; }
+.win-title {
+  flex: 1; text-align: center;
+  font-size: 12.5px; font-weight: 700; color: var(--muted); letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.win-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; color: var(--dim);
+  background: var(--border2); border-radius: 4px; padding: 2px 6px;
+}
+
+.win-body { padding: 18px; }
+
+/* ── KPI ROW ── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+.kpi {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 10px 12px;
+  border-top: 2px solid transparent;
+  transition: border-color .2s;
+}
+.kpi:hover { border-top-color: var(--blue); }
+.kpi .k-val {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 20px; font-weight: 600; color: var(--text);
+  line-height: 1;
+}
+.kpi .k-label { font-size: 10.5px; color: var(--muted); margin-top: 5px; }
+.kpi .k-delta { font-size: 10px; font-family: "JetBrains Mono", monospace; margin-top: 3px; }
+.k-delta.up { color: var(--green); } .k-delta.ok { color: var(--blue); }
+
+/* ── TABLE ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  background: var(--surface2); color: var(--muted); font-weight: 600;
+  padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+}
+.data-table td { padding: 7px 10px; border-bottom: 1px solid var(--border2); color: #cdd9e5; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(56,139,253,.06); }
+.data-table tr.hl td { background: rgba(56,139,253,.1); color: var(--blue); font-weight: 600; }
+.mono { font-family: "JetBrains Mono", monospace; }
+.tag { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10.5px; font-weight:600; font-family:"JetBrains Mono",monospace; }
+.tag.g { background: var(--green-dim); color: var(--green); }
+.tag.o { background: var(--orange-dim); color: var(--orange); }
+.tag.b { background: var(--blue-dim); color: var(--blue); }
+
+/* ── SECTION LABEL ── */
+.sec { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin: 14px 0 8px; }
+
+/* ── BARRAS IMPORTANCIA ── */
+.imp-list { display: flex; flex-direction: column; gap: 6px; }
+.imp-row { display: flex; align-items: center; gap: 10px; }
+.imp-name { font-size: 12px; color: #cdd9e5; width: 170px; flex-shrink: 0; }
+.imp-track { flex: 1; background: var(--border2); border-radius: 3px; height: 12px; overflow: hidden; position: relative; }
+.imp-fill { height: 100%; border-radius: 3px; transition: width 1.2s cubic-bezier(.16,1,.3,1); }
+.imp-fill.b { background: linear-gradient(90deg, #1d4ed8, #60a5fa); }
+.imp-fill.o { background: linear-gradient(90deg, #92400e, #f97316); }
+.imp-fill.g { background: linear-gradient(90deg, #166534, #4ade80); }
+.imp-pct { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); width: 36px; text-align: right; }
+
+/* ── CORRELACION HEATMAP ── */
+.heatmap { display: grid; grid-template-columns: 110px repeat(4,1fr); gap: 3px; font-size: 11px; }
+.hm-head { font-size: 10px; color: var(--muted); font-weight: 700; text-align: center; padding: 4px 2px; text-transform: uppercase; letter-spacing: .3px; }
+.hm-rl { font-size: 10px; color: var(--muted); font-weight: 700; text-align: right; padding-right: 8px; display: flex; align-items: center; justify-content: flex-end; line-height: 1.2; }
+.hm-cell {
+  border-radius: 5px; padding: 10px 4px; text-align: center;
+  font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 12px;
+}
+.hm-vhi  { background: #0d3321; color: #4ade80; }
+.hm-hi   { background: #0d2535; color: #60a5fa; }
+.hm-mid  { background: #2a2010; color: #f59e0b; }
+.hm-low  { background: #1f1515; color: #f87171; }
+
+/* ── HALLAZGOS ── */
+.finding { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border2); }
+.finding:last-child { border-bottom: none; }
+.finding-ico { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+.finding-ico.g { background: var(--green-dim); } .finding-ico.b { background: var(--blue-dim); } .finding-ico.o { background: var(--orange-dim); }
+.finding-text { font-size: 12px; color: #cdd9e5; line-height: 1.5; }
+.finding-text strong { font-weight: 700; color: var(--text); }
+
+/* ── CHARTS SVG ── */
+.chart-title { font-size: 11.5px; font-weight: 700; color: var(--blue); margin-bottom: 8px; letter-spacing: .2px; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.chart-wrap { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 12px; }
+
+/* ── PREDICCIÓN ── */
+.pred-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.param-box { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 14px; }
+.param-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+.param-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid var(--border2); font-size: 12px;
+}
+.param-row:last-child { border-bottom: none; }
+.param-key { color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.param-key::before { content: "▸"; font-size: 9px; color: var(--blue); }
+.param-val { font-family: "JetBrains Mono", monospace; font-weight: 600; color: var(--text); }
+
+.result-wrap { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.result-card {
+  background: linear-gradient(135deg, #0d2535, #0d1a2a);
+  border: 1px solid var(--blue);
+  border-radius: 8px; padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.result-badge2 {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #000; flex-shrink: 0;
+}
+.result-label { font-size: 11px; color: var(--muted); }
+.result-value { font-family: "JetBrains Mono", monospace; font-size: 22px; font-weight: 700; color: var(--green); margin-top: 2px; }
+
+.prob-section { }
+.prob-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.prob-row2 { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.prob-name2 { font-size: 11.5px; color: #cdd9e5; width: 95px; flex-shrink: 0; }
+.prob-track2 { flex: 1; background: var(--border2); border-radius: 3px; height: 13px; overflow: hidden; }
+.prob-fill2 { height: 100%; border-radius: 3px; transition: width 1.4s cubic-bezier(.16,1,.3,1); }
+.prob-fill2.p1 { background: linear-gradient(90deg,#1d4ed8,#60a5fa); }
+.prob-fill2.p2 { background: linear-gradient(90deg,#92400e,#f97316); }
+.prob-fill2.p3 { background: linear-gradient(90deg,#166534,#4ade80); }
+.prob-pct2 { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--muted); width: 40px; text-align: right; }
+
+.alert-box {
+  background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.3);
+  border-radius: 7px; padding: 10px 12px; font-size: 11.5px; color: #93c5fd; line-height: 1.5;
+}
+
+/* ── FOOTER ── */
+.footer {
+  position: relative; z-index: 1;
+  text-align: center; padding: 16px;
+  font-size: 11px; color: var(--dim);
+  border-top: 1px solid var(--border2);
+  font-family: "JetBrains Mono", monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🛢️</div>
+    <div>
+      <div class="logo-text">Fractura de Pozos — Cuenca Neuquina</div>
+      <div class="logo-sub">Universidad del Gran Rosario · Ingeniería del Software · Grupo 12</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-pill"><div class="status-dot"></div>Modelo activo</div>
+    <div class="top-meta">Dataset: Secretaría de Energía<br>Actualización: diaria</div>
+  </div>
+</div>
+
+<!-- DASHBOARD GRID -->
+<div class="wrapper">
+
+  <!-- ╔══ VENTANA 1: EDA + Modelos ══════════════════════════════════════════╗ -->
+  <div class="win">
+    <div class="win-bar">
+      <div class="win-dots"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+      <div class="win-title">Análisis Exploratorio & Modelos</div>
+      <div class="win-tag">EDA</div>
+    </div>
+    <div class="win-body">
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="k-val">2.547</div>
+          <div class="k-label">Pozos analizados</div>
+          <div class="k-delta ok">↑ 54.59% del dataset</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val">90.7%</div>
+          <div class="k-label">Vaca Muerta</div>
+          <div class="k-delta up">↑ formación dominante</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val">35.8</div>
+          <div class="k-label">Fracturas / pozo (media)</div>
+          <div class="k-delta ok">máx: 99 etapas</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val">11.648</div>
+          <div class="k-label">PSI mediana</div>
+          <div class="k-delta up">↑ alta presión sostenida</div>
+        </div>
+      </div>
+
+      <!-- Tabla modelos -->
+      <div class="sec">Estadística descriptiva — variables operativas clave</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Variable</th><th>Media</th><th>Mediana</th><th>Desv. Est.</th><th>Máx.</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Longitud rama (m)</td><td class="mono">2.289</td><td class="mono">2.474</td><td class="mono">940</td><td class="mono">5.200</td></tr>
+          <tr><td>Cantidad fracturas</td><td class="mono">35.8</td><td class="mono">34</td><td class="mono">18.2</td><td class="mono">99</td></tr>
+          <tr class="hl"><td>Presión máxima (PSI)</td><td class="mono">11.134</td><td class="mono">11.648</td><td class="mono">2.094</td><td class="mono">14.500</td></tr>
+          <tr><td>Agua inyectada (m³)</td><td class="mono">52.566</td><td class="mono">38.200</td><td class="mono">51.300</td><td class="mono">371.846</td></tr>
+          <tr><td>Arena total (tn)</td><td class="mono">8.910</td><td class="mono">7.820</td><td class="mono">6.340</td><td class="mono">52.100</td></tr>
+        </tbody>
+      </table>
+
+      <!-- Correlaciones clave -->
+      <div class="sec">Correlaciones Pearson destacadas</div>
+      <div class="imp-list">
+        <div class="imp-row"><span class="imp-name">Longitud rama ↔ Fracturas</span><div class="imp-track"><div class="imp-fill b" style="width:87%"></div></div><span class="imp-pct">0.87</span></div>
+        <div class="imp-row"><span class="imp-name">Longitud rama ↔ Agua</span><div class="imp-track"><div class="imp-fill b" style="width:78%"></div></div><span class="imp-pct">0.78</span></div>
+        <div class="imp-row"><span class="imp-name">Fracturas ↔ Agua</span><div class="imp-track"><div class="imp-fill o" style="width:72%"></div></div><span class="imp-pct">0.72</span></div>
+        <div class="imp-row"><span class="imp-name">Agua ↔ Presión PSI</span><div class="imp-track"><div class="imp-fill o" style="width:54%"></div></div><span class="imp-pct">0.54</span></div>
+        <div class="imp-row"><span class="imp-name">Longitud ↔ Presión PSI</span><div class="imp-track"><div class="imp-fill g" style="width:21%"></div></div><span class="imp-pct">0.21</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ╔══ VENTANA 2: Correlaciones & Hallazgos ══════════════════════════════╗ -->
+  <div class="win">
+    <div class="win-bar">
+      <div class="win-dots"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+      <div class="win-title">Correlaciones & Hallazgos</div>
+      <div class="win-tag">MÉTRICAS</div>
+    </div>
+    <div class="win-body">
+
+      <div class="sec">Matriz de correlación (variables operativas)</div>
+      <div class="heatmap">
+        <div class="hm-head"></div>
+        <div class="hm-head">Long.</div>
+        <div class="hm-head">Fracts.</div>
+        <div class="hm-head">PSI</div>
+        <div class="hm-head">Agua</div>
+
+        <div class="hm-rl">Longitud (m)</div>
+        <div class="hm-cell hm-vhi">1.00</div>
+        <div class="hm-cell hm-vhi">0.87</div>
+        <div class="hm-cell hm-mid">0.21</div>
+        <div class="hm-cell hm-vhi">0.78</div>
+
+        <div class="hm-rl">Cant. Fracturas</div>
+        <div class="hm-cell hm-vhi">0.87</div>
+        <div class="hm-cell hm-vhi">1.00</div>
+        <div class="hm-cell hm-mid">0.18</div>
+        <div class="hm-cell hm-hi">0.72</div>
+
+        <div class="hm-rl">Presión (PSI)</div>
+        <div class="hm-cell hm-mid">0.21</div>
+        <div class="hm-cell hm-mid">0.18</div>
+        <div class="hm-cell hm-vhi">1.00</div>
+        <div class="hm-cell hm-hi">0.54</div>
+
+        <div class="hm-rl">Agua (m³)</div>
+        <div class="hm-cell hm-vhi">0.78</div>
+        <div class="hm-cell hm-hi">0.72</div>
+        <div class="hm-cell hm-hi">0.54</div>
+        <div class="hm-cell hm-vhi">1.00</div>
+      </div>
+
+      <div class="sec" style="margin-top:16px">Hallazgos principales</div>
+      <div>
+        <div class="finding">
+          <div class="finding-ico g">🟢</div>
+          <div class="finding-text"><strong>Arena nacional:</strong> pozos con 100% arena nacional operan a <strong>11.665 PSI</strong> vs 6.131 PSI con arena importada. Diferencia estadísticamente significativa.</div>
+        </div>
+        <div class="finding">
+          <div class="finding-ico b">📈</div>
+          <div class="finding-text"><strong>Sin rendimiento decreciente:</strong> correlación Pearson 0.87 entre longitud de rama y cantidad de fracturas. La relación es lineal hasta los 4.000 m.</div>
+        </div>
+        <div class="finding">
+          <div class="finding-ico o">⚡</div>
+          <div class="finding-text"><strong>Intensificación sostenida:</strong> arena por pozo creció de <strong>5.600 tn</strong> (2018) a <strong>12.200 tn</strong> (2026). Tendencia alcista confirmada.</div>
+        </div>
+        <div class="finding">
+          <div class="finding-ico b">🏭</div>
+          <div class="finding-text"><strong>Concentración de mercado:</strong> YPF S.A. representa el <strong>+50%</strong> de los pozos del dataset. Top 5 operadoras concentran la mayoría de la actividad.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ╔══ VENTANA 3: Distribución ════════════════════════════════════════════╗ -->
+  <div class="win">
+    <div class="win-bar">
+      <div class="win-dots"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+      <div class="win-title">Análisis de Distribución</div>
+      <div class="win-tag">VISUALIZACIÓN</div>
+    </div>
+    <div class="win-body">
+      <div class="charts-grid">
+
+        <!-- Gráfico 1: Presión por origen de arena -->
+        <div class="chart-wrap">
+          <div class="chart-title">Presión media según origen de arena</div>
+          <svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+            <line x1="30" y1="8" x2="30" y2="100" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="100" x2="195" y2="100" stroke="#30363d" stroke-width="1"/>
+            <!-- guías -->
+            <line x1="30" y1="75" x2="195" y2="75" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <line x1="30" y1="50" x2="195" y2="50" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <line x1="30" y1="25" x2="195" y2="25" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <!-- Y labels -->
+            <text x="26" y="103" fill="#8b949e" font-size="7" text-anchor="end">0</text>
+            <text x="26" y="78"  fill="#8b949e" font-size="7" text-anchor="end">5k</text>
+            <text x="26" y="53"  fill="#8b949e" font-size="7" text-anchor="end">10k</text>
+            <text x="26" y="28"  fill="#8b949e" font-size="7" text-anchor="end">15k</text>
+            <!-- barra 100% Importada: 6131 → ~33px alto -->
+            <rect x="42" y="67" width="32" height="33" fill="#388bfd" opacity=".7" rx="3"/>
+            <text x="58" y="63" fill="#60a5fa" font-size="7.5" text-anchor="middle" font-weight="700">6.131</text>
+            <!-- barra 100% Nacional: 11665 → ~62px alto -->
+            <rect x="91" y="38" width="32" height="62" fill="#3fb950" opacity=".75" rx="3"/>
+            <text x="107" y="34" fill="#4ade80" font-size="7.5" text-anchor="middle" font-weight="700">11.665</text>
+            <!-- barra Mezcla: 10864 → ~57px alto -->
+            <rect x="140" y="43" width="32" height="57" fill="#f78166" opacity=".7" rx="3"/>
+            <text x="156" y="39" fill="#fca5a5" font-size="7.5" text-anchor="middle" font-weight="700">10.864</text>
+            <!-- X labels -->
+            <text x="58"  y="112" fill="#8b949e" font-size="7" text-anchor="middle">100% Import.</text>
+            <text x="107" y="112" fill="#8b949e" font-size="7" text-anchor="middle">100% Nac.</text>
+            <text x="156" y="112" fill="#8b949e" font-size="7" text-anchor="middle">Mezcla</text>
+            <text x="112" y="123" fill="#8b949e" font-size="6.5" text-anchor="middle">PSI promedio</text>
+          </svg>
+        </div>
+
+        <!-- Gráfico 2: Evolución arena temporal -->
+        <div class="chart-wrap">
+          <div class="chart-title">Intensidad de arena por pozo (tn/año)</div>
+          <svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+            <line x1="30" y1="8" x2="30" y2="100" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="100" x2="195" y2="100" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="67" x2="195" y2="67" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <line x1="30" y1="34" x2="195" y2="34" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <text x="26" y="103" fill="#8b949e" font-size="7" text-anchor="end">0</text>
+            <text x="26" y="70"  fill="#8b949e" font-size="7" text-anchor="end">6k</text>
+            <text x="26" y="37"  fill="#8b949e" font-size="7" text-anchor="end">12k</text>
+            <text x="26" y="11"  fill="#8b949e" font-size="7" text-anchor="end">18k</text>
+            <!-- área CI -->
+            <polygon points="38,72 58,65 78,70 98,57 118,51 138,46 158,43 178,39 178,48 158,53 138,56 118,62 98,67 78,79 58,74 38,80" fill="#f97316" opacity=".1"/>
+            <!-- tendencia -->
+            <line x1="38" y1="73" x2="178" y2="39" stroke="#484f58" stroke-width="1" stroke-dasharray="3,3"/>
+            <!-- línea principal -->
+            <polyline points="38,73 58,66 78,71 98,58 118,52 138,47 158,44 178,40" fill="none" stroke="#f97316" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <!-- puntos -->
+            <circle cx="38"  cy="73" r="3.5" fill="#f97316"/>
+            <circle cx="58"  cy="66" r="3.5" fill="#f97316"/>
+            <circle cx="78"  cy="71" r="3.5" fill="#f97316"/>
+            <circle cx="98"  cy="58" r="3.5" fill="#f97316"/>
+            <circle cx="118" cy="52" r="3.5" fill="#f97316"/>
+            <circle cx="138" cy="47" r="3.5" fill="#f97316"/>
+            <circle cx="158" cy="44" r="3.5" fill="#f97316"/>
+            <circle cx="178" cy="40" r="3.5" fill="#f97316"/>
+            <!-- tooltip 2020 (pandemia) -->
+            <line x1="78" y1="71" x2="78" y2="82" stroke="#8b949e" stroke-width=".8" stroke-dasharray="2,2"/>
+            <text x="78" y="90" fill="#8b949e" font-size="6" text-anchor="middle">pandemia</text>
+            <!-- X labels -->
+            <text x="38"  y="110" fill="#8b949e" font-size="6" text-anchor="middle">2018</text>
+            <text x="78"  y="110" fill="#8b949e" font-size="6" text-anchor="middle">2020</text>
+            <text x="118" y="110" fill="#8b949e" font-size="6" text-anchor="middle">2022</text>
+            <text x="158" y="110" fill="#8b949e" font-size="6" text-anchor="middle">2024</text>
+            <text x="178" y="110" fill="#8b949e" font-size="6" text-anchor="middle">2026</text>
+            <text x="112" y="122" fill="#8b949e" font-size="6.5" text-anchor="middle">Año de operación</text>
+          </svg>
+        </div>
+
+        <!-- Gráfico 3: Longitud vs Fracturas scatter -->
+        <div class="chart-wrap">
+          <div class="chart-title">Longitud de rama vs. Fracturas</div>
+          <svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+            <line x1="30" y1="8" x2="30" y2="100" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="100" x2="195" y2="100" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="60" x2="195" y2="60" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <text x="26" y="103" fill="#8b949e" font-size="7" text-anchor="end">0</text>
+            <text x="26" y="63"  fill="#8b949e" font-size="7" text-anchor="end">50</text>
+            <text x="26" y="11"  fill="#8b949e" font-size="7" text-anchor="end">99</text>
+            <!-- scatter puntos -->
+            <circle cx="45"  cy="88" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="52"  cy="82" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="60"  cy="80" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="68"  cy="74" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="75"  cy="76" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="83"  cy="70" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="90"  cy="65" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="98"  cy="60" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="105" cy="62" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="113" cy="55" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="120" cy="50" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="128" cy="48" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="135" cy="44" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="143" cy="40" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="150" cy="42" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="158" cy="35" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="165" cy="32" r="2" fill="#60a5fa" opacity=".5"/>
+            <circle cx="173" cy="28" r="2" fill="#60a5fa" opacity=".5"/>
+            <!-- LOWESS line -->
+            <polyline points="40,90 75,76 110,60 145,42 180,26" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round"/>
+            <text x="155" y="21" fill="#f87171" font-size="7">LOWESS r=0.87</text>
+            <text x="112" y="122" fill="#8b949e" font-size="6.5" text-anchor="middle">Longitud horizontal (m) →</text>
+          </svg>
+        </div>
+
+        <!-- Gráfico 4: Top 5 empresas -->
+        <div class="chart-wrap">
+          <div class="chart-title">Top 5 operadoras (% del dataset)</div>
+          <svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+            <line x1="30" y1="8" x2="30" y2="105" stroke="#30363d" stroke-width="1"/>
+            <line x1="30" y1="105" x2="195" y2="105" stroke="#30363d" stroke-width="1"/>
+            <!-- guías -->
+            <line x1="30" y1="55"  x2="195" y2="55"  stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <line x1="100" y1="8" x2="100" y2="105" stroke="#21262d" stroke-width=".6" stroke-dasharray="3,3"/>
+            <!-- YPF: 51.5% → ancho 82 -->
+            <rect x="30" y="14" height="15" width="82" fill="#388bfd" opacity=".8" rx="2"/>
+            <text x="116" y="25" fill="#60a5fa" font-size="8" font-weight="700">51.5%</text>
+            <!-- Tecpetrol: 14.2% → ancho 23 -->
+            <rect x="30" y="34" height="15" width="23" fill="#3fb950" opacity=".75" rx="2"/>
+            <text x="56"  y="45" fill="#4ade80" font-size="8" font-weight="700">14.2%</text>
+            <!-- Total: 11.8% → ancho 19 -->
+            <rect x="30" y="54" height="15" width="19" fill="#f78166" opacity=".75" rx="2"/>
+            <text x="52"  y="65" fill="#fca5a5" font-size="8" font-weight="700">11.8%</text>
+            <!-- Shell: 9.3% → ancho 15 -->
+            <rect x="30" y="74" height="15" width="15" fill="#bc8cff" opacity=".75" rx="2"/>
+            <text x="48"  y="85" fill="#d8b4fe" font-size="8" font-weight="700">9.3%</text>
+            <!-- Vista: 7.1% → ancho 11 -->
+            <rect x="30" y="94" height="9" width="11" fill="#39c5cf" opacity=".75" rx="2"/>
+            <text x="44"  y="101" fill="#67e8f9" font-size="7.5" font-weight="700">7.1%</text>
+            <!-- labels izquierda -->
+            <text x="26" y="25"  fill="#8b949e" font-size="7" text-anchor="end">YPF</text>
+            <text x="26" y="45"  fill="#8b949e" font-size="7" text-anchor="end">Tecpetrol</text>
+            <text x="26" y="65"  fill="#8b949e" font-size="7" text-anchor="end">Total</text>
+            <text x="26" y="85"  fill="#8b949e" font-size="7" text-anchor="end">Shell</text>
+            <text x="26" y="101" fill="#8b949e" font-size="7" text-anchor="end">Vista</text>
+            <text x="112" y="122" fill="#8b949e" font-size="6.5" text-anchor="middle">% de pozos en el dataset</text>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ╔══ VENTANA 4: Estimación de Pozo Individual ══════════════════════════╗ -->
+  <div class="win">
+    <div class="win-bar">
+      <div class="win-dots"><span class="wd r"></span><span class="wd y"></span><span class="wd g"></span></div>
+      <div class="win-title">Estimación de Pozo Individual</div>
+      <div class="win-tag">PREDICCIÓN</div>
+    </div>
+    <div class="win-body">
+
+      <div class="pred-layout">
+        <div class="param-box">
+          <div class="param-title">Parámetros del pozo</div>
+          <div class="param-row"><span class="param-key">Longitud rama</span><span class="param-val">3.200 m</span></div>
+          <div class="param-row"><span class="param-key">Arena nacional</span><span class="param-val">8.400 tn</span></div>
+          <div class="param-row"><span class="param-key">Arena importada</span><span class="param-val">0 tn</span></div>
+          <div class="param-row"><span class="param-key">Agua inyectada</span><span class="param-val">62.000 m³</span></div>
+          <div class="param-row"><span class="param-key">Formación</span><span class="param-val">Vaca Muerta</span></div>
+          <div class="param-row"><span class="param-key">Empresa</span><span class="param-val">YPF S.A.</span></div>
+        </div>
+
+        <div class="result-wrap">
+          <div>
+            <div class="param-title">Resultado de la estimación</div>
+            <div class="result-card">
+              <div class="result-badge2">✓</div>
+              <div>
+                <div class="result-label">Presión máxima estimada:</div>
+                <div class="result-value">11.820 PSI</div>
+              </div>
+            </div>
+          </div>
+          <div class="prob-section">
+            <div class="prob-label">Distribución de probabilidad</div>
+            <div class="prob-row2">
+              <span class="prob-name2">Alta presión (&gt;10k)</span>
+              <div class="prob-track2"><div class="prob-fill2 p1" style="width:78%"></div></div>
+              <span class="prob-pct2">78.0%</span>
+            </div>
+            <div class="prob-row2">
+              <span class="prob-name2">Presión media</span>
+              <div class="prob-track2"><div class="prob-fill2 p2" style="width:18%"></div></div>
+              <span class="prob-pct2">18.0%</span>
+            </div>
+            <div class="prob-row2">
+              <span class="prob-name2">Baja presión</span>
+              <div class="prob-track2"><div class="prob-fill2 p3" style="width:4%"></div></div>
+              <span class="prob-pct2">4.0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px" class="alert-box">
+        ℹ️ &nbsp;Este pozo usa <strong>100% arena nacional</strong> y rama de <strong>3.200 m</strong>. Según el análisis, se espera una presión consistente con el percentil 65 del dataset de Vaca Muerta. Los parámetros están dentro del rango operativo estándar (2.000–14.500 PSI).
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  UGR · Ingeniería del Software · Grupo 12 &nbsp;|&nbsp;
+  Dataset: Secretaría de Energía Argentina &nbsp;|&nbsp;
+  Metodología: CRISP-DM &nbsp;|&nbsp;
+  Modelo: Random Forest
+</div>
+
+</body>
+</html>
